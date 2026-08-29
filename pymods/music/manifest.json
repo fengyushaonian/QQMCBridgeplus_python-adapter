@@ -1,0 +1,11 @@
+{
+  "id": "music",
+  "name": "点歌器",
+  "version": "1.1.0",
+  "author": "QQMCBridge (adapted for QQMCBridgeplus)",
+  "description": "搜索网易云音乐并直接发送 mp3 语音条到群（下游版：本地 base64 直传，无需公网配置）",
+  "entry": "main.py",
+  "enabled": true,
+  "priority": 85,
+  "help": "点歌 <关键词>：搜索并发送 mp3 歌曲（语音条）"
+}

@@ -1,0 +1,10 @@
+requests
+playwright
+# 本地图片渲染（qqmc-draw 绘图 / go-9x9 围棋图卡）。未安装时网关会安全降级为纯文本，不会崩溃。
+# 但绘图/围棋功能将不可用，请务必在部署机器上安装：
+Pillow
+# 桌面控制台 desktop_panel（PyQt5 + qfluentwidgets，仿 WinUI 风格）可选依赖：
+# 仅在需要本地桌面面板时安装。
+# PyQt5
+# qfluentwidgets
+

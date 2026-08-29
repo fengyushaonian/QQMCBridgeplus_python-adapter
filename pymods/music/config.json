@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "settings": {
+    "enabled": true,
+    "prefix": "点歌",
+    "limit": 5,
+    "max_duration_seconds": 280,
+    "max_size_mb": 20,
+    "download_timeout": 60,
+    "cooldown_seconds": 30
+  }
+}

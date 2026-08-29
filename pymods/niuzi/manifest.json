@@ -1,0 +1,11 @@
+{
+  "id": "niuzi",
+  "name": "我的牛子",
+  "version": "1.0.0",
+  "author": "QQMCBridge (port of spark.niuzi by lition)",
+  "description": "群聊虚拟宠物「牛子」小游戏：领养/改名/比划/结婚/贴贴/排行（保留原版所有特性与已知 bug，含负长度）",
+  "entry": "main.py",
+  "enabled": true,
+  "priority": 100,
+  "help": "指令: 领养牛子 / 改牛子名 <新名> / 比划比划 @某人 / 我的牛子 / 看看你的 [@某人|QQ号] / 丢弃牛子 / 牛子菜单 / 牛子榜 / 牛子变性 / 搞对象 @某人 / 处理请求 <搞对象|分手> <同意|拒绝> / 我要分手 / 我的对象 / 贴贴"
+}

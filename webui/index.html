@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QQMCBridge · 管理面板</title>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<style>
+  :root {
+    --foreground: #09090b;
+    --primary: #16a34a;
+    --primary-foreground: #f0fdf4;
+    --muted-foreground: #71717a;
+    --destructive: #ef4444;
+    --destructive-foreground: #fafafa;
+    --warning: #f59e0b;
+    --info: #3b82f6;
+    --ring: #16a34a;
+    --radius: 0.75rem;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+    --shadow-md: 0 4px 16px -2px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.06);
+    --glass-bg: rgba(255, 255, 255, 0.55);
+    --glass-bg-strong: rgba(255, 255, 255, 0.72);
+    --glass-bg-solid: rgba(255, 255, 255, 0.82);
+    --glass-border: rgba(255, 255, 255, 0.6);
+    --glass-input: rgba(255, 255, 255, 0.5);
+    --glass-blur: blur(16px) saturate(180%);
+  }
+  html.dark {
+    --foreground: #fafafa;
+    --primary: #22c55e;
+    --primary-foreground: #052e16;
+    --muted-foreground: #a1a1aa;
+    --destructive: #dc2626;
+    --warning: #d97706;
+    --info: #2563eb;
+    --ring: #22c55e;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 16px -2px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+    --glass-bg: rgba(22, 22, 26, 0.5);
+    --glass-bg-strong: rgba(26, 26, 30, 0.68);
+    --glass-bg-solid: rgba(30, 30, 34, 0.78);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-input: rgba(0, 0, 0, 0.3);
+    --glass-blur: blur(16px) saturate(160%);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    color: var(--foreground);
+    font-size: 14px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh; position: relative; overflow-x: hidden;
+    background: #f0f4f8;
+  }
+  html.dark body { background: #07070a; }
+  .bg-layer { position: fixed; inset: 0; z-index: -2; overflow: hidden; }
+  .bg-gradient { position: absolute; inset: 0; background: linear-gradient(135deg, #ecfdf5 0%, #eff6ff 35%, #f5f3ff 70%, #fdf2f8 100%); }
+  html.dark .bg-gradient { background: linear-gradient(135deg, #070a0d 0%, #0a1410 35%, #0c1020 70%, #140a14 100%); }
+  .bg-orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.55; animation: orbFloat 18s ease-in-out infinite; }
+  .bg-orb.o1 { width: 520px; height: 520px; background: radial-gradient(circle, #86efac 0%, transparent 70%); top: -120px; left: -80px; }
+  .bg-orb.o2 { width: 480px; height: 480px; background: radial-gradient(circle, #93c5fd 0%, transparent 70%); bottom: -100px; right: -60px; animation-delay: -6s; }
+  .bg-orb.o3 { width: 400px; height: 400px; background: radial-gradient(circle, #c4b5fd 0%, transparent 70%); top: 40%; left: 55%; animation-delay: -12s; }
+  html.dark .bg-orb { opacity: 0.35; }
+  html.dark .bg-orb.o1 { background: radial-gradient(circle, #166534 0%, transparent 70%); }
+  html.dark .bg-orb.o2 { background: radial-gradient(circle, #1e3a8a 0%, transparent 70%); }
+  html.dark .bg-orb.o3 { background: radial-gradient(circle, #581c87 0%, transparent 70%); }
+  @keyframes orbFloat { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(40px, -30px) scale(1.08); } 66% { transform: translate(-30px, 25px) scale(0.95); } }
+  .bg-noise { position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 0.03; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  .app-shell { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+  .sidebar {
+    width: 260px; flex-shrink: 0;
+    position: relative; overflow: hidden;
+    background: linear-gradient(180deg, rgba(255,255,255,0.52) 0%, rgba(255,255,255,0.25) 100%);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border-right: 1px solid rgba(255,255,255,0.55);
+    box-shadow:
+      inset 1px 0 0 rgba(255,255,255,0.65),
+      inset -1px 0 0 rgba(0,0,0,0.04),
+      10px 0 40px rgba(0,0,0,0.06);
+    display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
+    transition: transform 0.2s ease; z-index: 40;
+  }
+  .sidebar::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.85), transparent);
+    pointer-events: none; z-index: 1;
+  }
+  .sidebar::after {
+    content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 1px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0.1), rgba(255,255,255,0.45));
+    pointer-events: none;
+  }
+  html.dark .sidebar {
+    background: linear-gradient(180deg, rgba(28,28,32,0.55) 0%, rgba(14,14,18,0.4) 100%);
+    border-right: 1px solid rgba(255,255,255,0.08);
+    box-shadow:
+      inset 1px 0 0 rgba(255,255,255,0.08),
+      inset -1px 0 0 rgba(0,0,0,0.35),
+      10px 0 40px rgba(0,0,0,0.4);
+  }
+  html.dark .sidebar::before {
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+  }
+  html.dark .sidebar::after {
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02), rgba(255,255,255,0.06));
+  }
+  .sidebar-header, .sidebar-nav, .sidebar-footer { position: relative; z-index: 2; }
+  .sidebar-header { padding: 20px 20px 16px; border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; gap: 10px; }
+  .sidebar-logo { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--primary), #15803d); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 16px; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35); }
+  .sidebar-brand { line-height: 1.2; }
+  .sidebar-brand .name { font-weight: 600; font-size: 15px; color: var(--foreground); }
+  .sidebar-brand .sub { font-size: 11px; color: var(--muted-foreground); margin-top: 2px; }
+  .sidebar-nav { flex: 1; padding: 12px; overflow-y: auto; }
+  .nav-section-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground); padding: 8px 10px 6px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; color: var(--muted-foreground); cursor: pointer; font-size: 13.5px; font-weight: 500; transition: background 0.15s, color 0.15s; margin-bottom: 2px; user-select: none; border: none; background: transparent; width: 100%; text-align: left; font-family: inherit; }
+  .nav-item:hover { background: var(--glass-bg-strong); color: var(--foreground); }
+  .nav-item.active { background: var(--primary); color: var(--primary-foreground); box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3); }
+  .nav-item.active:hover { background: var(--primary); }
+  .nav-item .icon { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .nav-item .icon svg { width: 18px; height: 18px; }
+  .sidebar-footer { padding: 12px; border-top: 1px solid var(--glass-border); }
+  .gateway-mini { background: var(--glass-bg-strong); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 10px; padding: 12px; }
+  .gateway-mini .row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 6px; }
+  .gateway-mini .row:last-child { margin-bottom: 0; }
+  .gateway-mini .label { color: var(--muted-foreground); }
+  .gateway-mini .value { font-weight: 600; color: var(--foreground); }
+  .logout-btn { width: 100%; margin-top: 10px; padding: 8px 12px; border: 1px solid var(--glass-border); border-radius: 8px; background: var(--glass-bg-strong); color: var(--foreground); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s, color 0.15s; }
+  .logout-btn:hover { background: var(--destructive); color: var(--destructive-foreground); border-color: var(--destructive); }
+  .status-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; }
+  .status-pill.online { background: rgba(22, 163, 74, 0.12); color: #15803d; }
+  html.dark .status-pill.online { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .status-pill.offline { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
+  html.dark .status-pill.offline { background: rgba(239,68,68,0.15); color: #f87171; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .status-dot.pulse { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .topbar { height: 60px; border-bottom: 1px solid var(--glass-border); background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; position: sticky; top: 0; z-index: 30; }
+  .topbar-left { display: flex; align-items: center; gap: 14px; }
+  .menu-toggle { display: none; background: var(--glass-bg-strong); border: 1px solid var(--glass-border); width: 36px; height: 36px; border-radius: 8px; align-items: center; justify-content: center; cursor: pointer; color: var(--foreground); }
+  .page-title { font-size: 18px; font-weight: 600; }
+  .page-subtitle { font-size: 12px; color: var(--muted-foreground); margin-top: 1px; }
+  .topbar-actions { display: flex; align-items: center; gap: 8px; }
+  .content { padding: 24px 28px 40px; flex: 1; }
+  .card { background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .card-header { padding: 18px 22px; border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .card-title { font-size: 15px; font-weight: 600; }
+  .card-desc { font-size: 12.5px; color: var(--muted-foreground); margin-top: 2px; }
+  .card-body { padding: 22px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; white-space: nowrap; font-family: inherit; line-height: 1; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25); }
+  .btn-primary:hover:not(:disabled) { filter: brightness(0.93); box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35); }
+  .btn-secondary { background: var(--glass-bg-strong); color: var(--foreground); border-color: var(--glass-border); backdrop-filter: var(--glass-blur); }
+  .btn-secondary:hover:not(:disabled) { background: var(--glass-bg-solid); }
+  .btn-outline { background: transparent; color: var(--foreground); border-color: var(--glass-border); backdrop-filter: var(--glass-blur); }
+  .btn-outline:hover:not(:disabled) { background: var(--glass-bg-strong); }
+  .btn-destructive { background: var(--destructive); color: var(--destructive-foreground); border-color: var(--destructive); }
+  .btn-destructive:hover:not(:disabled) { filter: brightness(0.93); }
+  .btn-ghost { background: transparent; color: var(--foreground); }
+  .btn-ghost:hover:not(:disabled) { background: var(--glass-bg-strong); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .btn-icon { width: 36px; height: 36px; padding: 0; }
+  .form-row { margin-bottom: 16px; }
+  .form-row:last-child { margin-bottom: 0; }
+  label.field-label { display: block; font-size: 12.5px; font-weight: 500; color: var(--foreground); margin-bottom: 6px; }
+  .input, .textarea, .select { width: 100%; padding: 8px 12px; background: var(--glass-input); backdrop-filter: blur(8px); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--foreground); font-size: 13px; font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s, background 0.15s; outline: none; }
+  .input:focus, .textarea:focus, .select:focus { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 20%, transparent); background: var(--glass-bg-strong); }
+  .textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+  .select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 32px; cursor: pointer; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; }
+  .checkbox-row input[type="checkbox"] { width: auto; accent-color: var(--primary); cursor: pointer; width: 16px; height: 16px; }
+  .checkbox-row label { margin: 0; cursor: pointer; font-size: 13px; }
+  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; border: 1px solid transparent; }
+  .badge-default { background: var(--glass-bg-strong); color: var(--foreground); border-color: var(--glass-border); }
+  .badge-success { background: rgba(22,163,74,0.12); color: #15803d; border-color: rgba(22,163,74,0.2); }
+  html.dark .badge-success { background: rgba(34,197,94,0.12); color: #4ade80; border-color: rgba(34,197,94,0.25); }
+  .badge-danger { background: rgba(239,68,68,0.12); color: #b91c1c; border-color: rgba(239,68,68,0.2); }
+  html.dark .badge-danger { background: rgba(239,68,68,0.12); color: #f87171; border-color: rgba(239,68,68,0.25); }
+  .badge-warning { background: rgba(245,158,11,0.12); color: #b45309; border-color: rgba(245,158,11,0.2); }
+  html.dark .badge-warning { background: rgba(245,158,11,0.12); color: #fbbf24; border-color: rgba(245,158,11,0.25); }
+  .badge-info { background: rgba(59,130,246,0.12); color: #1d4ed8; border-color: rgba(59,130,246,0.2); }
+  html.dark .badge-info { background: rgba(59,130,246,0.12); color: #60a5fa; border-color: rgba(59,130,246,0.25); }
+  .badge-muted { background: var(--glass-bg-strong); color: var(--muted-foreground); border-color: var(--glass-border); }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  .stat-card { background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); transition: transform 0.2s, box-shadow 0.2s; }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .stat-label { font-size: 12px; color: var(--muted-foreground); font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em; }
+  .stat-value { font-size: 26px; font-weight: 700; margin-top: 6px; letter-spacing: -0.02em; }
+  .stat-foot { font-size: 12px; color: var(--muted-foreground); margin-top: 4px; }
+  .stat-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+  .stat-icon.green { background: rgba(22,163,74,0.12); color: #15803d; }
+  html.dark .stat-icon.green { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .stat-icon.blue { background: rgba(59,130,246,0.12); color: #1d4ed8; }
+  html.dark .stat-icon.blue { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .stat-icon.orange { background: rgba(245,158,11,0.12); color: #b45309; }
+  html.dark .stat-icon.orange { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .stat-icon.purple { background: rgba(168,85,247,0.12); color: #7c3aed; }
+  html.dark .stat-icon.purple { background: rgba(168,85,247,0.15); color: #c084fc; }
+  .server-list { display: flex; flex-direction: column; gap: 10px; }
+  .server-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid var(--glass-border); border-radius: 10px; background: var(--glass-bg-strong); backdrop-filter: blur(10px); transition: border-color 0.15s, transform 0.15s; }
+  .server-row:hover { border-color: color-mix(in srgb, var(--primary) 40%, var(--glass-border)); transform: translateX(2px); }
+  .server-main { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .server-avatar { width: 42px; height: 42px; border-radius: 10px; background: linear-gradient(135deg, var(--glass-bg-solid), var(--glass-bg-strong)); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; color: var(--muted-foreground); flex-shrink: 0; }
+  .server-name { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .server-meta { font-size: 12px; color: var(--muted-foreground); margin-top: 3px; }
+  .server-meta span + span::before { content: "·"; margin: 0 6px; color: var(--glass-border); }
+  .server-right { text-align: right; flex-shrink: 0; }
+  .server-players { font-size: 13px; font-weight: 600; }
+  .server-players-sub { font-size: 11px; color: var(--muted-foreground); margin-top: 2px; }
+  .log-box { background: var(--glass-input); backdrop-filter: blur(8px); border: 1px solid var(--glass-border); border-radius: 8px; padding: 14px; height: 420px; overflow-y: auto; font-family: "JetBrains Mono", "SF Mono", "Consolas", "Menlo", monospace; font-size: 12.5px; line-height: 1.7; }
+  .log-item { margin-bottom: 2px; white-space: pre-wrap; word-break: break-all; }
+  .log-time { color: var(--muted-foreground); }
+  .log-mc { color: #15803d; } html.dark .log-mc { color: #4ade80; }
+  .log-qq { color: #2563eb; } html.dark .log-qq { color: #60a5fa; }
+  .log-warn { color: #b45309; } html.dark .log-warn { color: #fbbf24; }
+  .log-err { color: #b91c1c; } html.dark .log-err { color: #f87171; }
+  .config-section { border: 1px solid var(--glass-border); border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; background: var(--glass-bg-strong); backdrop-filter: blur(10px); }
+  .config-section:last-child { margin-bottom: 0; }
+  .config-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .config-section-title { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .config-section-title::before { content: ""; width: 3px; height: 14px; border-radius: 2px; background: linear-gradient(180deg, var(--primary), #86efac); }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .backend-card { border: 1px solid var(--glass-border); border-radius: 10px; padding: 16px; margin-bottom: 12px; background: var(--glass-bg); backdrop-filter: blur(10px); position: relative; }
+  .backend-card .form-grid { grid-template-columns: 1fr 1fr; }
+  .backend-card-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+  .mod-card { border: 1px solid var(--glass-border); border-radius: 10px; padding: 18px 20px; margin-bottom: 14px; background: var(--glass-bg-strong); backdrop-filter: blur(10px); }
+  .mod-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+  .mod-title { font-size: 15px; font-weight: 600; }
+  .mod-id { font-size: 12px; color: var(--muted-foreground); font-weight: 400; margin-left: 6px; }
+  .mod-desc { font-size: 13px; color: var(--muted-foreground); margin-bottom: 10px; }
+  .mod-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .mod-tag { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .mod-tag.on { background: rgba(22,163,74,0.12); color: #15803d; }
+  html.dark .mod-tag.on { background: rgba(34,197,94,0.12); color: #4ade80; }
+  .mod-tag.off { background: var(--glass-bg); color: var(--muted-foreground); border: 1px solid var(--glass-border); }
+  .mod-settings { border-top: 1px dashed var(--glass-border); padding-top: 14px; margin-top: 4px; }
+  .mod-actions { display: flex; gap: 8px; margin-top: 14px; }
+  .switch { position: relative; display: inline-block; width: 38px; height: 22px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch-slider { position: absolute; cursor: pointer; inset: 0; background: var(--glass-border); border-radius: 999px; transition: 0.2s; }
+  .switch-slider::before { content: ""; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s; box-shadow: 0 1px 3px rgb(0 0 0 / 0.2); }
+  .switch input:checked + .switch-slider { background: var(--primary); }
+  .switch input:checked + .switch-slider::before { transform: translateX(16px); }
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .toolbar .select { width: auto; min-width: 160px; }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--muted-foreground); }
+  .empty-state .icon { font-size: 32px; margin-bottom: 8px; opacity: 0.5; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .json-editor { font-family: "JetBrains Mono", "SF Mono", "Consolas", monospace; font-size: 12.5px; line-height: 1.6; min-height: 260px; tab-size: 2; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
+  .toast-container { position: fixed; top: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--glass-bg-solid); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 10px; padding: 12px 16px; box-shadow: var(--shadow-md); font-size: 13px; min-width: 240px; max-width: 360px; display: flex; align-items: flex-start; gap: 10px; animation: slideIn 0.25s ease; }
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .toast.success { border-left: 3px solid var(--primary); }
+  .toast.error { border-left: 3px solid var(--destructive); }
+  .toast.warning { border-left: 3px solid var(--warning); }
+  .toast.info { border-left: 3px solid var(--info); }
+  @media (max-width: 900px) {
+    .sidebar { position: fixed; left: 0; transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); box-shadow: var(--shadow-md); }
+    .menu-toggle { display: flex; }
+    .content { padding: 16px; }
+    .topbar { padding: 0 16px; }
+    .backend-card .form-grid { grid-template-columns: 1fr; }
+  }
+  .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgb(0 0 0 / 0.4); z-index: 35; }
+  .sidebar-overlay.show { display: block; }
+</style>
+</head>
+<body>
+<div class="bg-layer"><div class="bg-gradient"></div><div class="bg-orb o1"></div><div class="bg-orb o2"></div><div class="bg-orb o3"></div></div>
+<div class="bg-noise"></div>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header"><div class="sidebar-logo">Q</div><div class="sidebar-brand"><div class="name">QQMCBridge</div><div class="sub">Web 管理面板</div></div></div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">总览</div>
+      <button class="nav-item active" data-tab="server"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>服务器状态</button>
+      <button class="nav-item" data-tab="log"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>互通日志</button>
+      <div class="nav-section-label">插件</div>
+      <button class="nav-item" data-tab="mods"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg></span>子插件管理</button>
+      <button class="nav-item" data-tab="pymods"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>Python 子插件</button>
+      <div class="nav-section-label">系统</div>
+      <button class="nav-item" data-tab="config"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>配置编辑器</button>
+    </nav>
+    <div class="sidebar-footer"><div class="gateway-mini">
+      <div class="row"><span class="label">网关</span><span class="status-pill online" id="gwPill"><span class="status-dot pulse"></span><span id="gwPillText">连接中</span></span></div>
+      <div class="row"><span class="label">轮询间隔</span><span class="value" id="gwPoll">—</span></div>
+      <div class="row"><span class="label">重连等待</span><span class="value" id="gwReconnect">—</span></div>
+      <div class="row"><span class="label">在线后端</span><span class="value" id="gwBackends">0</span></div>
+      <button class="logout-btn" id="logoutBtn" type="button">退出登录</button>
+    </div></div>
+  </aside>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle" id="menuToggle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div><div class="page-title" id="pageTitle">服务器状态</div><div class="page-subtitle" id="pageSubtitle">多后端服务器在线状态与远程指令执行</div></div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-outline btn-icon" id="themeToggle" title="切换主题"><svg id="iconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg><svg id="iconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+        <button class="btn btn-secondary btn-sm" id="globalRefresh"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>刷新</button>
+      </div>
+    </header>
+    <main class="content">
+      <section id="tab-server" class="tab-content active">
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-icon green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg></div><div class="stat-label">在线后端</div><div class="stat-value" id="statOnline">0</div><div class="stat-foot" id="statOnlineFoot">共 0 台配置</div></div>
+          <div class="stat-card"><div class="stat-icon blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="stat-label">在线玩家</div><div class="stat-value" id="statPlayers">0</div><div class="stat-foot">跨所有在线服务器</div></div>
+          <div class="stat-card"><div class="stat-icon orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div class="stat-label">平均 TPS</div><div class="stat-value" id="statTps">—</div><div class="stat-foot">在线服务器均值</div></div>
+          <div class="stat-card"><div class="stat-icon purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="stat-label">轮询间隔</div><div class="stat-value" id="statInterval">—</div><div class="stat-foot">网关消息轮询</div></div>
+        </div>
+        <div class="card" style="margin-bottom:20px"><div class="card-header"><div><div class="card-title">多服在线状态</div><div class="card-desc">所有已配置后端服务器的实时连接状态</div></div><button class="btn btn-primary btn-sm" id="refreshServer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>刷新状态</button></div><div class="card-body"><div class="server-list" id="serverList"></div></div></div>
+        <div class="card"><div class="card-header"><div><div class="card-title">远程执行 MC 指令</div><div class="card-desc">向指定后端服务器发送控制台指令（管理员）</div></div></div><div class="card-body">
+          <div class="form-grid" style="margin-bottom:14px"><div class="form-row" style="margin-bottom:0"><label class="field-label">目标服务器</label><select class="select" id="execServer"><option value="">加载服务器列表…</option></select></div><div class="form-row" style="margin-bottom:0"><label class="field-label">指令内容</label><input class="input" type="text" id="cmdInput" placeholder="例如: list / tp @s 0 64 0"></div></div>
+          <div class="toolbar" style="margin-bottom:14px"><button class="btn btn-primary btn-sm" id="sendCmd">执行指令</button><button class="btn btn-outline btn-sm" id="clearCmd">清空</button></div>
+          <label class="field-label">执行返回结果</label><div class="log-box" id="cmdResult" style="height:160px"></div>
+        </div></div>
+      </section>
+      <section id="tab-log" class="tab-content"><div class="card"><div class="card-header"><div><div class="card-title">QQ ↔ MC 实时互通日志</div><div class="card-desc">最近 300 条消息转发记录，每 3 秒自动拉取</div></div><div class="toolbar"><button class="btn btn-primary btn-sm" id="pollLog"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>拉取日志</button><button class="btn btn-outline btn-sm" id="clearLog">清空日志</button></div></div><div class="card-body"><div class="log-box" id="logBox"></div></div></div></section>
+      <section id="tab-config" class="tab-content"><div class="card"><div class="card-header"><div><div class="card-title">网关总配置 config.json</div><div class="card-desc">可视化编辑网关配置，保存后自动热重载</div></div><div class="toolbar"><button class="btn btn-outline btn-sm" id="loadAllConfig">读取当前配置</button><button class="btn btn-primary btn-sm" id="saveAllConfig">保存配置</button><button class="btn btn-secondary btn-sm" id="resetConfig">重置默认值</button></div></div><div class="card-body">
+        <div class="config-section"><div class="config-section-head"><div class="config-section-title">QQ 机器人鉴权配置</div></div><div class="form-grid"><div class="form-row"><label class="field-label">APP_ID</label><input class="input" id="cfgAppid" placeholder="YOUR_APP_ID"></div><div class="form-row"><label class="field-label">APP_SECRET</label><input class="input" id="cfgSecret" type="password" placeholder="密钥"></div><div class="form-row"><label class="field-label">目标群 GROUP_OPENID</label><input class="input" id="cfgGroupid" placeholder="群 OpenID"></div></div></div>
+        <div class="config-section"><div class="config-section-head"><div class="config-section-title">网关运行参数</div></div><div class="form-grid"><div class="form-row"><label class="field-label">轮询间隔 POLL_INTERVAL（秒）</label><input class="input" id="cfgPollInterval" value="0.5"></div><div class="form-row"><label class="field-label">断线重连等待 RECONNECT_SECONDS（秒）</label><input class="input" id="cfgReconnectSec" value="5"></div><div class="form-row"><label class="field-label">Web 面板端口 web_port</label><input class="input" id="cfgWebPort" value="8080"></div><div class="form-row"><label class="field-label">查服指令 command_server</label><input class="input" id="cfgCmdServer" value="查服"></div></div></div>
+        <div class="config-section"><div class="config-section-head"><div class="config-section-title">后端服务器列表 backends</div><button class="btn btn-primary btn-sm" id="addBackendBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>新增服务器</button></div><div id="backendListEdit"></div></div>
+        <div class="config-section"><div class="config-section-head"><div class="config-section-title">配置 JSON 预览</div><span class="badge badge-muted">可直接编辑</span></div><textarea class="textarea json-editor" id="rawConfigJson"></textarea></div>
+      </div></div></section>
+      <section id="tab-mods" class="tab-content"><div class="card"><div class="card-header"><div><div class="card-title">子插件管理</div><div class="card-desc">读取各后端服 mods 目录，启停与设置保存后自动热加载</div></div><div class="toolbar"><label class="field-label" style="margin:0">目标服务器</label><select class="select" id="modBackendSel"></select><button class="btn btn-primary btn-sm" id="refreshMods">刷新</button></div></div><div class="card-body"><div id="modsList"></div></div></div></section>
+      <section id="tab-pymods" class="tab-content"><div class="card"><div class="card-header"><div><div class="card-title">Python 子插件（pymods）</div><div class="card-desc">运行于网关进程内，修改后点刷新即可重载</div></div><button class="btn btn-primary btn-sm" id="refreshPyMods"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>刷新 / 重载</button></div><div class="card-body"><div id="pymodsList"></div></div></div></section>
+    </main>
+  </div>
+</div>
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+const API = "/api";
+// 跨域/同站请求都自动携带HttpOnly会话Cookie（网关据此鉴权）
+try { axios.defaults.withCredentials = true; } catch(e){}
+// ---- 登录守卫：以 /api/status 是否返回 401 作为是否登录的依据（不再依赖前端自行存token）----
+(async function authGuard(){
+  try {
+    const res = await axios.get(API + "/status");
+    if (res.status !== 200) { window.location.replace("login.html"); }
+  } catch (err) {
+    // 401 或网络错误（外网未登录）→ 跳登录页；其余异常也保守跳转
+    window.location.replace("login.html");
+  }
+})();
+function logout(){
+  try{ axios.post(API+"/logout").catch(()=>{}); }catch(e){}
+  try{ localStorage.removeItem("qqmc_token"); sessionStorage.removeItem("qqmc_token"); }catch(e){}
+  window.location.replace("login.html");
+}
+let currentConfig = {}, logTimer = null;
+const PAGE_META = { server:{title:"服务器状态",sub:"多后端服务器在线状态与远程指令执行"}, log:{title:"互通日志",sub:"QQ ↔ MC 消息转发实时记录"}, mods:{title:"子插件管理",sub:"各后端服务器 mods 目录插件启停与配置"}, config:{title:"配置编辑器",sub:"网关 config.json 可视化编辑与热重载"}, pymods:{title:"Python 子插件",sub:"网关进程内 pymods 插件管理"} };
+function toast(msg,type="info"){const c=document.getElementById("toastContainer"),el=document.createElement("div");el.className="toast "+type;el.innerText=msg;c.appendChild(el);setTimeout(()=>{el.style.opacity="0";el.style.transform="translateX(100%)";el.style.transition="0.25s"},2800);setTimeout(()=>el.remove(),3200)}
+const themeToggle=document.getElementById("themeToggle"),iconSun=document.getElementById("iconSun"),iconMoon=document.getElementById("iconMoon");
+function applyTheme(t){document.documentElement.classList.toggle("dark",t==="dark");iconSun.style.display=t==="dark"?"none":"block";iconMoon.style.display=t==="dark"?"block":"none";try{localStorage.setItem("qqmc_theme",t)}catch(e){}}
+try{applyTheme(localStorage.getItem("qqmc_theme")||"light")}catch(e){applyTheme("light")}
+themeToggle.onclick=()=>applyTheme(document.documentElement.classList.contains("dark")?"light":"dark");
+const sidebar=document.getElementById("sidebar"),overlay=document.getElementById("sidebarOverlay");
+document.getElementById("menuToggle").onclick=()=>{sidebar.classList.add("open");overlay.classList.add("show")};
+overlay.onclick=()=>{sidebar.classList.remove("open");overlay.classList.remove("show")};
+const navItems=document.querySelectorAll(".nav-item"),tabContents=document.querySelectorAll(".tab-content");
+function switchTab(target){navItems.forEach(b=>b.classList.toggle("active",b.dataset.tab===target));tabContents.forEach(c=>c.classList.toggle("active",c.id==="tab-"+target));const meta=PAGE_META[target]||{};document.getElementById("pageTitle").innerText=meta.title||"";document.getElementById("pageSubtitle").innerText=meta.sub||"";if(window.innerWidth<=900){sidebar.classList.remove("open");overlay.classList.remove("show")}if(target==="pymods")fetchPyMods();if(target==="mods")fetchMods()}
+navItems.forEach(btn=>{btn.onclick=()=>switchTab(btn.dataset.tab)});
+document.getElementById("globalRefresh").onclick=()=>{const active=document.querySelector(".tab-content.active");if(!active)return;const id=active.id.replace("tab-","");if(id==="server")fetchStatus();else if(id==="log")fetchLogs();else if(id==="mods")fetchMods();else if(id==="pymods")reloadPyMods();toast("已刷新","success")};
+function renderServerList(backends){const wrap=document.getElementById("serverList"),execSel=document.getElementById("execServer"),prev=execSel.value;wrap.innerHTML="";execSel.innerHTML="";let oc=0,tp=0,ts=0,tc=0;if(!backends||!backends.length){wrap.innerHTML='<div class="empty-state"><div class="icon">📡</div>暂无后端服务器，请在配置编辑器添加 backends</div>'}else{backends.forEach(sv=>{const io=sv.status==="online";if(io){oc++;tp+=Number(sv.online)||0;if(sv.tps!=null&&!isNaN(sv.tps)){ts+=Number(sv.tps);tc++}}const players=(sv.players&&sv.players.length)?sv.players.map(p=>typeof p==="string"?p:((p&&p.name)||"?")).join(", "):"（无玩家）",initial=(sv.name||"?").charAt(0).toUpperCase(),div=document.createElement("div");div.className="server-row";div.innerHTML=`<div class="server-main"><div class="server-avatar">${initial}</div><div style="min-width:0"><div class="server-name">${sv.name}<span class="badge ${io?"badge-success":"badge-danger"}">${io?"在线":"离线"}</span></div><div class="server-meta"><span>${sv.url}</span><span>TPS ${sv.tps??"—"}</span><span>${sv.version||"版本未知"}</span></div><div class="server-meta" style="margin-top:4px">玩家：${players}</div></div></div><div class="server-right"><div class="server-players">${sv.online??0} 人</div><div class="server-players-sub">${io?"正常":("离线"+(sv.error?"："+sv.error:""))}</div></div>`;wrap.appendChild(div);const opt=document.createElement("option");opt.value=sv.url;opt.innerText=sv.name+(io?"":"（离线）");execSel.appendChild(opt)})}document.getElementById("statOnline").innerText=oc;document.getElementById("statOnlineFoot").innerText="共 "+(backends?.length||0)+" 台配置";document.getElementById("statPlayers").innerText=tp;document.getElementById("statTps").innerText=tc?(ts/tc).toFixed(1):"—";if(prev){for(const opt of execSel.options)if(opt.value===prev){execSel.value=prev;break}}}
+async function fetchStatus(){try{const res=await axios.get(API+"/status"),data=res.data;renderServerList(data.backends||[]);const gw=data.gateway||{};document.getElementById("gwPill").className="status-pill online";document.getElementById("gwPillText").innerText="正常";document.getElementById("gwPoll").innerText=(gw.poll_interval??"—")+"s";document.getElementById("gwReconnect").innerText=(gw.reconnect_seconds??"—")+"s";document.getElementById("gwBackends").innerText=gw.backend_count??0;document.getElementById("statInterval").innerText=(gw.poll_interval??"—")+"s"}catch(e){document.getElementById("gwPill").className="status-pill offline";document.getElementById("gwPillText").innerText="断开";document.getElementById("statInterval").innerText="—"}}
+document.getElementById("refreshServer").onclick=fetchStatus;
+function addLogItem(time,text,type){const box=document.getElementById("logBox"),item=document.createElement("div"),cls=type==="qq"?"log-qq":type==="mc"?"log-mc":type==="error"?"log-err":"log-warn";item.className="log-item "+cls;item.innerHTML=`<span class="log-time">[${time}]</span> ${text}`;box.appendChild(item)}
+async function fetchLogs(){try{const res=await axios.get(API+"/logs?limit=300"),box=document.getElementById("logBox");box.innerHTML="";(res.data.logs||[]).forEach(item=>addLogItem(item.time,item.text,item.type));box.scrollTop=box.scrollHeight}catch(e){}}
+document.getElementById("pollLog").onclick=fetchLogs;document.getElementById("clearLog").onclick=()=>{document.getElementById("logBox").innerHTML=""};
+document.getElementById("sendCmd").onclick=async()=>{const target=document.getElementById("execServer").value,cmd=document.getElementById("cmdInput").value.trim(),resBox=document.getElementById("cmdResult");if(!target){resBox.innerText="请先选择目标服务器（刷新状态后加载）";return}if(!cmd){resBox.innerText="请输入指令";return}resBox.innerText="执行中…";try{const res=await axios.post(API+"/exec",{target,command:cmd}),d=res.data;if(d.ok===false)resBox.innerText="执行失败："+(d.error||"未知错误");else resBox.innerText=(d.success?"[成功] ":"[失败] ")+(d.output||"(无输出)")}catch(e){resBox.innerText="请求失败："+e.message}};
+document.getElementById("clearCmd").onclick=()=>{document.getElementById("cmdInput").value="";document.getElementById("cmdResult").innerText=""};
+function getDefaultConfig(){return{"APP_ID":"YOUR_APP_ID","APP_SECRET":"","GROUP_OPENID":"","POLL_INTERVAL":0.5,"RECONNECT_SECONDS":5,"web_port":8080,"command_server":"查服","backends":[{"name":"主服","url":"http://127.0.0.1:10724","token":"QQMCBridgeLocalToken","relay_mc_to_qq":true}]}}
+function renderBackendEditor(){const wrap=document.getElementById("backendListEdit");wrap.innerHTML="";const list=currentConfig.backends||[];if(!list.length){wrap.innerHTML='<div class="empty-state" style="padding:20px">暂无后端，点击右上角「新增服务器」</div>';return}list.forEach((item,idx)=>{const div=document.createElement("div");div.className="backend-card";div.innerHTML=`<div class="form-grid"><div class="form-row"><label class="field-label">服务器名称</label><input class="input bk-name" value="${(item.name||'').replace(/"/g,'&quot;')}"></div><div class="form-row"><label class="field-label">后端 URL</label><input class="input bk-url" value="${(item.url||'').replace(/"/g,'&quot;')}"></div><div class="form-row"><label class="field-label">Local Token</label><input class="input bk-token" value="${(item.token||'').replace(/"/g,'&quot;')}"></div><div class="form-row" style="display:flex;align-items:flex-end;padding-bottom:8px"><div class="checkbox-row"><label class="switch"><input type="checkbox" class="bk-relay" ${item.relay_mc_to_qq?'checked':''}><span class="switch-slider"></span></label><label>游戏消息转发到 QQ</label></div></div></div><div class="backend-card-actions"><button class="btn btn-destructive btn-sm del-backend" data-idx="${idx}">删除此服务器</button></div>`;wrap.appendChild(div)});document.querySelectorAll(".del-backend").forEach(btn=>{btn.onclick=()=>{const i=Number(btn.dataset.idx);currentConfig.backends.splice(i,1);syncConfigToForm()}})}
+document.getElementById("addBackendBtn").onclick=()=>{if(!currentConfig.backends)currentConfig.backends=[];currentConfig.backends.push({name:"新服务器",url:"http://127.0.0.1:10724",token:"QQMCBridgeLocalToken",relay_mc_to_qq:true});syncConfigToForm()};
+function syncConfigToForm(){const c=currentConfig;document.getElementById("cfgAppid").value=c.APP_ID||"";document.getElementById("cfgSecret").value=c.APP_SECRET||"";document.getElementById("cfgGroupid").value=c.GROUP_OPENID||"";document.getElementById("cfgPollInterval").value=c.POLL_INTERVAL??0.5;document.getElementById("cfgReconnectSec").value=c.RECONNECT_SECONDS??5;document.getElementById("cfgWebPort").value=c.web_port??8080;document.getElementById("cfgCmdServer").value=c.command_server||"查服";renderBackendEditor();document.getElementById("rawConfigJson").value=JSON.stringify(c,null,2)}
+function readFormToConfig(){const c={};c.APP_ID=document.getElementById("cfgAppid").value.trim();c.APP_SECRET=document.getElementById("cfgSecret").value.trim();c.GROUP_OPENID=document.getElementById("cfgGroupid").value.trim();c.POLL_INTERVAL=parseFloat(document.getElementById("cfgPollInterval").value)||0.5;c.RECONNECT_SECONDS=parseInt(document.getElementById("cfgReconnectSec").value)||5;c.web_port=parseInt(document.getElementById("cfgWebPort").value)||8080;c.command_server=document.getElementById("cfgCmdServer").value.trim();const backends=[];document.querySelectorAll(".backend-card").forEach(card=>{backends.push({name:card.querySelector(".bk-name").value.trim(),url:card.querySelector(".bk-url").value.trim(),token:card.querySelector(".bk-token").value.trim(),relay_mc_to_qq:card.querySelector(".bk-relay").checked})});c.backends=backends;return c}
+document.getElementById("loadAllConfig").onclick=async()=>{try{const res=await axios.get(API+"/config");currentConfig=res.data;syncConfigToForm();toast("已加载当前网关配置","success")}catch(e){toast("加载配置失败："+e.message,"error")}};
+document.getElementById("saveAllConfig").onclick=async()=>{currentConfig=readFormToConfig();document.getElementById("rawConfigJson").value=JSON.stringify(currentConfig,null,2);try{await axios.put(API+"/config",currentConfig);toast("配置已保存，网关已热重载","success");fetchStatus()}catch(e){toast("保存失败："+e.message,"error")}};
+document.getElementById("resetConfig").onclick=()=>{if(!confirm("确认重置为原始默认配置？所有修改会丢失"))return;currentConfig=getDefaultConfig();syncConfigToForm();toast("已重置为默认配置","info")};
+document.getElementById("rawConfigJson").onchange=()=>{try{currentConfig=JSON.parse(document.getElementById("rawConfigJson").value);syncConfigToForm();toast("已从 JSON 框加载配置","info")}catch(e){toast("JSON 格式错误："+e.message,"error")}};
+function renderMods(mods){const wrap=document.getElementById("modsList");wrap.innerHTML="";if(!mods||!mods.length){wrap.innerHTML='<div class="empty-state"><div class="icon">📦</div>mods 目录暂无子插件</div>';return}const caps=[["supportsQQ","QQ"],["supportsMCChat","聊天"],["supportsJoin","进服"],["supportsLeave","退服"],["supportsTick","Tick"],["supportsHttp","HTTP"],["allowWithoutMention","免@"]];mods.forEach(function(mod){const card=document.createElement("div");card.className="mod-card";const tagHtml=caps.map(function(c){const on=mod[c[0]];return'<span class="mod-tag '+(on?"on":"off")+'">'+c[1]+(on?"":" ×")+"</span>"}).join("");card.innerHTML='<div class="mod-card-head"><div><span class="mod-title">'+(mod.title||mod.name)+'</span><span class="mod-id">'+mod.name+(mod.version?" · v"+mod.version:"")+'</span></div><span class="badge '+(mod.enabled?"badge-success":"badge-muted")+'">'+(mod.enabled?"已启用":"已禁用")+'</span></div><p class="mod-desc">'+(mod.description||"")+'</p><div class="mod-tags">'+tagHtml+'</div><div class="checkbox-row" style="margin-bottom:12px"><label class="switch"><input type="checkbox" class="mod-enable" '+(mod.enabled?"checked":"")+'><span class="switch-slider"></span></label><label>启用此插件</label></div><div class="mod-settings"></div>';const setWrap=card.querySelector(".mod-settings"),schema=mod.settingsSchema||[];schema.forEach(function(item){const row=document.createElement("div");row.className="form-row";const label=document.createElement("label");label.className="field-label";label.innerText=item.label||item.key;let input;const val=(mod.settings||{})[item.key],def=item.default!==undefined?item.default:"";if(item.type==="boolean"){const w2=document.createElement("div");w2.className="checkbox-row";input=document.createElement("input");input.type="checkbox";input.checked=Boolean(val);const lbl=document.createElement("label");lbl.innerText="启用";w2.appendChild(input);w2.appendChild(lbl);row.appendChild(label);row.appendChild(w2)}else if(item.type==="number"){input=document.createElement("input");input.type="number";input.className="input";input.value=(val!==undefined&&val!==null)?val:def;row.appendChild(label);row.appendChild(input)}else if(item.type==="textarea"){input=document.createElement("textarea");input.className="textarea";input.value=(val!==undefined&&val!==null)?val:def;row.appendChild(label);row.appendChild(input)}else if(item.type==="select"){input=document.createElement("select");input.className="select";(item.options||[]).forEach(function(o){const op=document.createElement("option");op.value=o;op.innerText=o;input.appendChild(op)});input.value=(val!==undefined&&val!==null)?val:def;row.appendChild(label);row.appendChild(input)}else{input=document.createElement("input");input.type="text";input.className="input";input.value=(val!==undefined&&val!==null)?val:def;row.appendChild(label);row.appendChild(input)}if(input){input.classList.add("mod-setting");input.dataset.key=item.key}setWrap.appendChild(row)});if(!schema.length)setWrap.innerHTML='<p style="color:var(--muted-foreground);font-size:13px">该插件没有声明可编辑设置。</p>';const btnRow=document.createElement("div");btnRow.className="mod-actions";const saveBtn=document.createElement("button");saveBtn.className="btn btn-primary btn-sm";saveBtn.innerText="保存设置";saveBtn.onclick=function(){const backend=document.getElementById("modBackendSel").value,settings={};card.querySelectorAll(".mod-setting").forEach(function(i){settings[i.dataset.key]=i.type==="checkbox"?i.checked:(i.type==="number"?Number(i.value):i.value)});const enabled=card.querySelector(".mod-enable").checked;saveBtn.innerText="保存中…";saveBtn.disabled=true;axios.post(API+"/mods",{backend:backend,name:mod.name,enabled:enabled,settings:settings}).then(function(res){if(res.data.ok===false)toast("保存失败："+(res.data.error||"未知"),"error");else toast("已保存，后端将自动热加载","success");return fetchMods()}).catch(function(e){toast("请求失败："+e.message,"error")}).then(function(){saveBtn.innerText="保存设置";saveBtn.disabled=false})};btnRow.appendChild(saveBtn);card.appendChild(btnRow);wrap.appendChild(card)})}
+async function fetchMods(){const sel=document.getElementById("modBackendSel"),backend=sel.value,wrap=document.getElementById("modsList");wrap.innerHTML='<div class="empty-state">加载中…</div>';try{const res=await axios.get(API+"/mods"+(backend?"?backend="+encodeURIComponent(backend):""));const backends=res.data.backends||[];if(!sel.options.length){backends.forEach(function(b){const o=document.createElement("option");o.value=b.name;o.innerText=b.name+(b.ok?"":"（离线）");sel.appendChild(o)});if(backend&&sel.value!==backend)sel.value=backend}const target=backends.find(function(b){return b.name===backend})||backends[0];if(!target){wrap.innerHTML='<div class="empty-state">暂无后端或该后端离线</div>';return}if(!target.ok){wrap.innerHTML='<div class="empty-state">后端 '+target.name+' 离线：'+(target.error||"")+'</div>';return}renderMods(target.mods||[])}catch(e){wrap.innerHTML='<div class="empty-state">加载失败：'+e.message+'</div>'}}
+document.getElementById("refreshMods").onclick=fetchMods;document.getElementById("modBackendSel").onchange=fetchMods;
+function renderPyMods(list){const wrap=document.getElementById("pymodsList");wrap.innerHTML="";if(!list||!list.length){wrap.innerHTML='<div class="empty-state"><div class="icon">🐍</div>pymods 目录暂无子插件</div>';return}list.forEach(function(m){const card=document.createElement("div");card.className="mod-card";card.innerHTML='<div class="mod-card-head"><div><span class="mod-title">'+(m.name||m.id)+'</span><span class="mod-id">'+(m.id||"")+(m.version?" · v"+m.version:"")+'</span></div><span class="badge '+(m.enabled?"badge-success":"badge-muted")+'">'+(m.enabled?"已启用":"已禁用")+'</span></div><p class="mod-desc">'+(m.description||"")+'</p><div class="form-grid"><div class="form-row"><label class="field-label">优先级</label><div style="font-size:13px;font-weight:500">'+(m.priority!=null?m.priority:"—")+'</div></div><div class="form-row"><label class="field-label">状态</label><div style="font-size:13px;font-weight:500">'+(m.enabled?"运行中":"已停用")+'</div></div></div>'+(m.help?'<div class="form-row" style="margin-top:8px"><label class="field-label">帮助</label><div style="font-size:13px;color:var(--primary);font-weight:500">'+m.help+'</div></div>':"");wrap.appendChild(card)})}
+async function fetchPyMods(){const wrap=document.getElementById("pymodsList");wrap.innerHTML='<div class="empty-state">加载中…</div>';try{const res=await axios.get(API+"/pymods");renderPyMods(res.data.pymods||[])}catch(e){wrap.innerHTML='<div class="empty-state">加载失败：'+e.message+'</div>'}}
+async function reloadPyMods(){const wrap=document.getElementById("pymodsList");wrap.innerHTML='<div class="empty-state">重载中…</div>';try{const res=await axios.post(API+"/pymods/reload");if(res.data.ok===false){wrap.innerHTML='<div class="empty-state">重载失败：'+(res.data.error||"")+'</div>';return}renderPyMods(res.data.pymods||[]);toast("pymods 已重载","success")}catch(e){wrap.innerHTML='<div class="empty-state">重载失败：'+e.message+'</div>'}}
+document.getElementById("refreshPyMods").onclick=reloadPyMods;
+window.onload=()=>{document.getElementById("logoutBtn").onclick=logout;currentConfig=getDefaultConfig();syncConfigToForm();fetchStatus();fetchLogs();setInterval(fetchStatus,10000);logTimer=setInterval(fetchLogs,3000)};
+</script>
+</body>
+</html>

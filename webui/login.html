@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QQMCBridge · 登录</title>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<style>
+  :root {
+    --foreground: #09090b;
+    --primary: #16a34a;
+    --primary-foreground: #f0fdf4;
+    --muted-foreground: #71717a;
+    --destructive: #ef4444;
+    --destructive-foreground: #fafafa;
+    --ring: #16a34a;
+    --radius: 0.75rem;
+    --shadow-md: 0 4px 16px -2px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.06);
+    --glass-bg: rgba(255, 255, 255, 0.55);
+    --glass-bg-strong: rgba(255, 255, 255, 0.72);
+    --glass-bg-solid: rgba(255, 255, 255, 0.82);
+    --glass-border: rgba(255, 255, 255, 0.6);
+    --glass-input: rgba(255, 255, 255, 0.5);
+    --glass-blur: blur(16px) saturate(180%);
+  }
+  html.dark {
+    --foreground: #fafafa;
+    --primary: #22c55e;
+    --primary-foreground: #052e16;
+    --muted-foreground: #a1a1aa;
+    --destructive: #dc2626;
+    --ring: #22c55e;
+    --shadow-md: 0 4px 16px -2px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+    --glass-bg: rgba(22, 22, 26, 0.5);
+    --glass-bg-strong: rgba(26, 26, 30, 0.68);
+    --glass-bg-solid: rgba(30, 30, 34, 0.78);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-input: rgba(0, 0, 0, 0.3);
+    --glass-blur: blur(16px) saturate(160%);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    color: var(--foreground); font-size: 14px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden; background: #f0f4f8;
+  }
+  html.dark body { background: #07070a; }
+  .bg-layer { position: fixed; inset: 0; z-index: -2; overflow: hidden; }
+  .bg-gradient { position: absolute; inset: 0; background: linear-gradient(135deg, #ecfdf5 0%, #eff6ff 35%, #f5f3ff 70%, #fdf2f8 100%); }
+  html.dark .bg-gradient { background: linear-gradient(135deg, #070a0d 0%, #0a1410 35%, #0c1020 70%, #140a14 100%); }
+  .bg-orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.55; animation: orbFloat 18s ease-in-out infinite; }
+  .bg-orb.o1 { width: 520px; height: 520px; background: radial-gradient(circle, #86efac 0%, transparent 70%); top: -120px; left: -80px; }
+  .bg-orb.o2 { width: 480px; height: 480px; background: radial-gradient(circle, #93c5fd 0%, transparent 70%); bottom: -100px; right: -60px; animation-delay: -6s; }
+  .bg-orb.o3 { width: 400px; height: 400px; background: radial-gradient(circle, #c4b5fd 0%, transparent 70%); top: 40%; left: 55%; animation-delay: -12s; }
+  html.dark .bg-orb { opacity: 0.35; }
+  html.dark .bg-orb.o1 { background: radial-gradient(circle, #166534 0%, transparent 70%); }
+  html.dark .bg-orb.o2 { background: radial-gradient(circle, #1e3a8a 0%, transparent 70%); }
+  html.dark .bg-orb.o3 { background: radial-gradient(circle, #581c87 0%, transparent 70%); }
+  @keyframes orbFloat { 0%,100% { transform: translate(0,0) scale(1); } 33% { transform: translate(40px,-30px) scale(1.08); } 66% { transform: translate(-30px,25px) scale(0.95); } }
+  .login-card {
+    width: 380px; max-width: calc(100vw - 40px);
+    background: var(--glass-bg-solid); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border); border-radius: 20px; padding: 36px 32px;
+    box-shadow: var(--shadow-md); position: relative; z-index: 1;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+  .brand-logo { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, var(--primary), #15803d); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 20px; box-shadow: 0 6px 16px rgba(22, 163, 74, 0.35); }
+  .brand-name { font-weight: 700; font-size: 18px; color: var(--foreground); }
+  .brand-sub { font-size: 12px; color: var(--muted-foreground); margin-top: 2px; }
+  .title { margin: 22px 0 4px; font-size: 20px; font-weight: 700; color: var(--foreground); }
+  .subtitle { font-size: 13px; color: var(--muted-foreground); margin-bottom: 22px; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 7px; color: var(--foreground); }
+  .field input[type="text"], .field input[type="password"] {
+    width: 100%; padding: 11px 13px; border-radius: 10px; border: 1px solid var(--glass-border);
+    background: var(--glass-input); color: var(--foreground); font-size: 14px; font-family: inherit;
+    outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .field input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18); }
+  .row-remember { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; font-size: 13px; }
+  .row-remember label { display: flex; align-items: center; gap: 7px; color: var(--muted-foreground); cursor: pointer; }
+  .login-btn {
+    width: 100%; padding: 12px; border: none; border-radius: 10px; cursor: pointer;
+    background: var(--primary); color: var(--primary-foreground); font-size: 15px; font-weight: 700;
+    font-family: inherit; box-shadow: 0 6px 16px rgba(22, 163, 74, 0.3); transition: opacity 0.15s, transform 0.05s;
+  }
+  .login-btn:hover { opacity: 0.92; }
+  .login-btn:active { transform: translateY(1px); }
+  .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .error-box { display: none; margin-bottom: 16px; padding: 10px 12px; border-radius: 10px; font-size: 13px;
+    background: rgba(239, 68, 68, 0.12); color: #b91c1c; border: 1px solid rgba(239, 68, 68, 0.25); }
+  html.dark .error-box { color: #fca5a5; }
+  .footer { margin-top: 22px; text-align: center; font-size: 11px; color: var(--muted-foreground); }
+  .theme-toggle { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; border-radius: 9px;
+    border: 1px solid var(--glass-border); background: var(--glass-bg-strong); color: var(--foreground);
+    cursor: pointer; display: flex; align-items: center; justify-content: center; }
+</style>
+</head>
+<body>
+  <div class="bg-layer">
+    <div class="bg-gradient"></div>
+    <div class="bg-orb o1"></div>
+    <div class="bg-orb o2"></div>
+    <div class="bg-orb o3"></div>
+  </div>
+
+  <button class="theme-toggle" id="themeToggle" type="button" title="切换主题">
+    <span id="themeIcon">🌙</span>
+  </button>
+
+  <div class="login-card">
+    <div class="brand">
+      <div class="brand-logo">QQ</div>
+      <div>
+        <div class="brand-name">QQMCBridge</div>
+        <div class="brand-sub">管理面板</div>
+      </div>
+    </div>
+    <div class="title">欢迎回来</div>
+    <div class="subtitle">请登录以继续管理你的网关</div>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <form id="loginForm" autocomplete="off">
+      <div class="field">
+        <label for="username">用户名</label>
+        <input type="text" id="username" name="username" placeholder="请输入用户名" autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="password">密码</label>
+        <input type="password" id="password" name="password" placeholder="请输入密码" autocomplete="current-password">
+      </div>
+      <div class="row-remember">
+        <label><input type="checkbox" id="remember" checked> 记住我</label>
+        <span id="sessionHint" style="color:var(--muted-foreground)">检测中…</span>
+      </div>
+      <button type="submit" class="login-btn" id="loginBtn">登 录</button>
+    </form>
+
+    <div class="footer">Powered by QQMCBridge+</div>
+  </div>
+
+<script>
+  const API = "/api";
+
+  // 主题：沿用 webui 的本地存储偏好
+  function applyTheme(t){
+    document.documentElement.classList.toggle("dark", t === "dark");
+    document.getElementById("themeIcon").textContent = t === "dark" ? "☀️" : "🌙";
+    try { localStorage.setItem("qqmc_theme", t); } catch(e){}
+  }
+  try { applyTheme(localStorage.getItem("qqmc_theme") || "light"); } catch(e){ applyTheme("light"); }
+  document.getElementById("themeToggle").onclick = () => {
+    applyTheme(document.documentElement.classList.contains("dark") ? "light" : "dark");
+  };
+
+  // 检测会话状态：已登录则跳转，否则显示当前访问模式
+  (async function(){
+    const hint = document.getElementById("sessionHint");
+    try {
+      const res = await axios.get(API + "/status");
+      if (res.status === 200) {
+        if (hint) hint.textContent = "已登录";
+        window.location.replace("index.html");
+        return;
+      }
+    } catch(e){
+      const status = e.response && e.response.status;
+      if (hint) {
+        hint.textContent = status === 401 ? "需要登录（公网访问）" : "需要登录";
+      }
+    }
+    if (hint && hint.textContent === "检测中…") hint.textContent = "需要登录";
+  })();
+
+  function showError(msg){
+    const box = document.getElementById("errorBox");
+    box.textContent = msg; box.style.display = "block";
+  }
+
+  document.getElementById("loginForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value;
+    const btn = document.getElementById("loginBtn");
+    if (!username) { showError("请输入用户名"); return; }
+    btn.disabled = true; btn.textContent = "登录中…";
+    document.getElementById("errorBox").style.display = "none";
+    try {
+      // 网关下发 HttpOnly Cookie 自动存储会话，无需前端手动保存 token
+      const res = await axios.post(API + "/login", { username, password });
+      if (res.data && res.data.ok) {
+        window.location.replace("index.html");
+      } else {
+        showError((res.data && res.data.error) || "登录失败");
+      }
+    } catch (err) {
+      const data = err.response && err.response.data;
+      showError((data && data.error) || ("网络错误：" + err.message));
+    } finally {
+      btn.disabled = false; btn.textContent = "登 录";
+    }
+  };
+</script>
+</body>
+</html>

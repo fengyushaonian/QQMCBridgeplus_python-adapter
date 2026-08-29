@@ -1,0 +1,11 @@
+{
+  "id": "roll-dice",
+  "name": "掷骰子",
+  "version": "1.0.0",
+  "author": "QQMCBridge",
+  "description": "发送「掷骰子」或「rd 100」随机掷一个 1~N 的数字",
+  "entry": "main.py",
+  "enabled": true,
+  "priority": 100,
+  "help": "掷骰子 / rd <最大值>：随机掷一个 1~N 的数字"
+}
